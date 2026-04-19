@@ -1,0 +1,10 @@
+# Ignore local dataset (too large for git)
+Liver_Dataset/
+
+# Ignore trained model checkpoints
+best_model.keras
+outputs/best_model.keras
+.venv/
+venv/
+env/
+__pycache__/
