@@ -11,6 +11,56 @@
 
 ---
 
+## 0) ما هي CNN؟ ولماذا استخدمناها هنا؟
+
+CNN اختصار لـ Convolutional Neural Network، وهي شبكة عصبية متخصصة في فهم الصور.
+
+الفكرة الأساسية:
+1. طبقات الالتفاف Convolution تتعلم Features تلقائيًا (حواف، قوام، أنماط نسيجية دقيقة).
+2. طبقات التجميع Pooling تقلل الأبعاد وتحافظ على المعلومات الأهم.
+3. طبقات Fully Connected تتخذ القرار النهائي للفئة.
+
+لماذا CNN مناسبة لصور الكبد؟
+- الصور الطبية غالبًا تحتوي تفاصيل نسيجية صغيرة لا يمكن تمثيلها بسهولة بقواعد يدوية.
+- CNN تتعلم هذه التفاصيل مباشرة من البيانات.
+- تعطي أداء قوي في مهام التصنيف الصوري مقارنة بطرق تقليدية كثيرة.
+
+كيف طُبقت داخل هذا المشروع؟
+- Data Augmentation لتحسين التعميم.
+- Conv2D + MaxPooling + Dropout على مراحل.
+- مخرج Softmax متعدد الفئات (أو Sigmoid عند حالتين فقط).
+- تدريب مع Early Stopping وModelCheckpoint لضبط الجودة.
+
+---
+
+## 0.1) التقنيات المستخدمة في المشروع
+
+### تقنيات الذكاء الاصطناعي والتعلم العميق
+- TensorFlow / Keras: بناء وتدريب النموذج.
+- CNN Architecture: التصنيف الصوري الطبي.
+- Data Augmentation: Rotation/Zoom/Flip.
+- Early Stopping: إيقاف ذكي عند توقف التحسن.
+- Model Checkpointing: حفظ أفضل نموذج تلقائيًا.
+- Grad-CAM: تفسير بصري لقرار النموذج.
+
+### تقنيات التحليل والتقييم
+- Scikit-learn:
+  1. Classification Report
+  2. Confusion Matrix
+- Matplotlib + Seaborn: رسم المنحنيات والمخططات.
+
+### تقنيات التطبيق والواجهة
+- Streamlit: واجهة ويب تفاعلية للتدريب والتشخيص.
+- PIL (Pillow): تحميل ومعالجة الصور.
+- NumPy: المعالجة العددية للمصفوفات.
+
+### تقنيات البنية والتشغيل
+- argparse: استقبال إعدادات التشغيل من الطرفية.
+- pathlib + json: إدارة المسارات وتخزين أسماء الفئات.
+- subprocess: تشغيل التدريب من داخل واجهة Streamlit مع عرض Live logs.
+
+---
+
 ## 1) محتوى المشروع (ما الذي يوجد في كل ملف؟)
 
 ```text
@@ -482,3 +532,131 @@ python -m streamlit run app.py
 4. Dashboard تفاعلي لتشغيل كل المراحل
 
 إذا أردت، يمكن في الخطوة التالية أن أضيف داخل README قسم "شرح كل دالة" بشكل مرجعي حرفي (Function-by-Function Reference) مع جدول منفصل لكل ملف.
+
+---
+
+## 16) مخططات تدفق لكل الحالات المتوفرة بالمشروع
+
+هذا القسم يجمع كل سيناريوهات التشغيل الفعلية الموجودة في الكود.
+
+### 16.1 تدفق التدريب الكامل (train_liver_cnn.py)
+
+```mermaid
+flowchart TD
+  A[Start] --> B[قراءة الوسائط من argparse]
+  B --> C{هل مجلد البيانات موجود؟}
+  C -- لا --> X1[إيقاف مع FileNotFoundError]
+  C -- نعم --> D[استخراج أسماء الفئات]
+  D --> E[تحديد label_mode binary/categorical]
+  E --> F[إنشاء train_ds و val_ds]
+  F --> G[بناء نموذج CNN]
+  G --> H[تعريف EarlyStopping + ModelCheckpoint]
+  H --> I[بدء model.fit]
+  I --> J[حفظ training_curves.png]
+  J --> K[حساب report + confusion matrix]
+  K --> L[حفظ class_names.json]
+  L --> M{هل حفظ model_path نجح؟}
+  M -- نعم --> N[حفظ النموذج في المسار الرئيسي]
+  M -- لا --> O[حفظ fallback final_model.keras]
+  N --> P{هل تم تمرير sample_image؟}
+  O --> P
+  P -- نعم --> Q[تشغيل predict_single_image]
+  P -- لا --> R{هل تم تمرير gradcam_image؟}
+  Q --> R
+  R -- نعم --> S[توليد Grad-CAM وحفظ overlay]
+  R -- لا --> T[End]
+  S --> T
+```
+
+### 16.2 تدفق التنبؤ من الطرفية (predict_single.py)
+
+```mermaid
+flowchart TD
+  A[Start CLI] --> B[قراءة model-path وclass-names-json وimage-path]
+  B --> C{هل model موجود؟}
+  C -- لا --> X1[خطأ: Model file not found]
+  C -- نعم --> D{هل class_names.json موجود؟}
+  D -- لا --> X2[خطأ: Class names JSON not found]
+  D -- نعم --> E{هل الصورة موجودة؟}
+  E -- لا --> X3[خطأ: Input image not found]
+  E -- نعم --> F[تحميل class names]
+  F --> G[تحميل النموذج]
+  G --> H[استدعاء predict_single_image]
+  H --> I[طباعة predicted_class + confidence]
+  I --> J[End]
+```
+
+### 16.3 تدفق الواجهة (app.py) من فتح التطبيق حتى التدريب
+
+```mermaid
+flowchart TD
+  A[فتح Streamlit app] --> B[عرض إعدادات التدريب]
+  B --> C[المستخدم يحدد data_dir/output_dir/model_path]
+  C --> D[ضغط زر بدء التدريب]
+  D --> E{هل data_dir موجود؟}
+  E -- لا --> X1[عرض رسالة خطأ]
+  E -- نعم --> F[تشغيل train_liver_cnn.py عبر subprocess]
+  F --> G[قراءة logs live]
+  G --> H[تحديث Epoch progress bar]
+  H --> I{هل التدريب نجح؟}
+  I -- لا --> X2[عرض فشل التدريب + السجل]
+  I -- نعم --> J[عرض نجاح التدريب + السجل]
+  J --> K[عرض artifacts: curves + confusion + report]
+```
+
+### 16.4 تدفق تشخيص صورة جديدة من الواجهة
+
+```mermaid
+flowchart TD
+  A[دخول قسم التشخيص] --> B[resolve_inference_resources]
+  B --> C{هل يوجد نموذج صالح؟}
+  C -- لا --> X1[تنبيه: غير جاهز للتنبؤ]
+  C -- نعم --> D{هل class names متوفرة؟}
+  D -- لا --> X2[تنبيه: تعذر إيجاد أسماء الفئات]
+  D -- نعم --> E[رفع صورة جديدة]
+  E --> F[عرض الصورة]
+  F --> G[ضغط زر تحليل الصورة]
+  G --> H[تحميل النموذج]
+  H --> I[حساب predicted_class/confidence/probabilities]
+  I --> J[حساب disease probability إن أمكن]
+  J --> K[عرض شارات النتيجة + progress]
+  K --> L[رسم Bar Chart لاحتمالات الفئات]
+  L --> M{خيار Grad-CAM مفعل؟}
+  M -- لا --> Z[End]
+  M -- نعم --> N[توليد heatmap]
+  N --> O[حفظ وعرض ui_gradcam_overlay.png]
+  O --> Z
+```
+
+### 16.5 تدفق مخرجات الحالات المرضية (الفئات المتوفرة)
+
+```mermaid
+flowchart TD
+  A[صورة مريض جديدة] --> B[Preprocess + Model Inference]
+  B --> C[استخراج probabilities لكل الفئات]
+  C --> D{أعلى احتمال لأي فئة؟}
+  D --> E[Angiosarcoma]
+  D --> F[Cholangiocarcinoma]
+  D --> G[Healthy]
+  D --> H[Hemangioma]
+  D --> I[Hepatocellular_Carcinoma]
+  E --> J[عرض الفئة + الثقة]
+  F --> J
+  G --> J
+  H --> J
+  I --> J
+```
+
+### 16.6 تدفق حساب نسبة الإصابة التقريبية في الواجهة
+
+```mermaid
+flowchart TD
+  A[probabilities dict] --> B{هل توجد Healthy أو Normal؟}
+  B -- نعم --> C[مرض تقريبي = 1 - P(Healthy)]
+  B -- لا --> D{هل التصنيف ثنائي؟}
+  D -- نعم --> E[استخدام احتمال الفئة الثانية]
+  D -- لا --> F[لا يمكن الاشتقاق تلقائيًا]
+  C --> G[عرض النسبة للمستخدم]
+  E --> G
+  F --> H[عرض ملاحظة تفسيرية]
+```
